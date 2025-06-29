@@ -86,7 +86,18 @@ export class ApiService {
 
   static async fetchTimetables(userId: string): Promise<FetchTimetablesResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/timetables?userId=${userId}`);
+      console.log('🔍 Fetching timetables from:', `${API_BASE_URL}/api/timetables?userId=${userId}`);
+      
+      const response = await fetch(`${API_BASE_URL}/api/timetables?userId=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors'
+      });
+      
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         if (response.status === 500) {
@@ -101,9 +112,10 @@ export class ApiService {
       }
 
       const result = await response.json();
+      console.log('✅ Timetables fetched successfully:', result);
       return result;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('❌ API Error:', error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error. Please check your connection and ensure the backend is running.');
       }
@@ -145,7 +157,7 @@ export class ApiService {
   }
 
   // Analytics methods
-  static async saveAnalytics(analyticsData: any) {
+  static async saveAnalytics(analyticsData: Record<string, unknown>) {
     const response = await fetch(`${API_BASE_URL}/api/analytics`, {
       method: 'POST',
       headers: {
