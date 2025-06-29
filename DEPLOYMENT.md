@@ -1,6 +1,6 @@
-# Time AI Deployment Guide
+# TSamay Sahayak Deployment Guide
 
-This guide provides step-by-step instructions for deploying the Time AI application to various platforms.
+This guide provides step-by-step instructions for deploying the Samay Sahayak application to various platforms.
 
 ## 🚀 Quick Start
 

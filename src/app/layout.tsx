@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Time AI - AI-Powered Time Management",
+  title: "Samay Sahayak - AI-Powered Time Management",
   description: "Generate personalized timetables using AI and proven productivity techniques",
 };
 

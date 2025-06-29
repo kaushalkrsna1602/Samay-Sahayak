@@ -1,7 +1,7 @@
 {
   "name": "time-ai-backend",
   "version": "1.0.0",
-  "description": "Backend server for Time AI application",
+  "description": "Backend server for Samay Sahayak application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -23,6 +23,6 @@
     "npm": ">=8.0.0"
   },
   "keywords": ["time-management", "ai", "productivity", "express"],
-  "author": "Time AI Team",
+  "author": "Samay Sahayak Team",
   "license": "MIT"
 } 

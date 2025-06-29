@@ -9,7 +9,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
           <div className="text-center">
             <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6">
-              Time AI
+              Samay Sahayak
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
               Transform your productivity with AI-powered time management. 
@@ -31,7 +31,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              How Time AI Helps You
+              How Samay Sahayak Helps You
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Our AI analyzes your tasks and preferences to create optimal schedules 

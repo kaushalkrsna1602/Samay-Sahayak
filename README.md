@@ -1,6 +1,6 @@
-# Time AI - AI-Powered Time Management Application
+# Samay Sahayak - AI-Powered Time Management Application
 
-Time AI is a modern web application that helps users create personalized timetables using AI. Built with Next.js, Express.js, MongoDB, and Google Gemini AI.
+Samay Sahayak is a modern web application that helps users create personalized timetables using AI. Built with Next.js, Express.js, MongoDB, and Google Gemini AI.
 
 ## Features
 

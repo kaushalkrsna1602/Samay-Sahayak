@@ -19,7 +19,7 @@ export function Header() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         <div className="flex items-center gap-6">
           <Link href="/" className="text-2xl font-bold text-blue-600 tracking-tight">
-            Time AI
+            Samay Sahayak
           </Link>
           <SignedIn>
             <ul className="flex items-center gap-4 ml-6">

@@ -185,7 +185,7 @@ app.delete('/api/timetables/:id', async (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Time AI Backend is running' });
+  res.json({ status: 'OK', message: 'Samay Sahayak Backend is running' });
 });
 
 // Analytics endpoints
@@ -366,7 +366,7 @@ process.on('SIGINT', () => {
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Time AI Backend Server running on port ${PORT}`);
+  console.log(`🚀 Samay Sahayak Backend Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
 });
