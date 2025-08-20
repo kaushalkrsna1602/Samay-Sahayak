@@ -107,11 +107,42 @@ app.post('/api/generate-timetable', async (req, res) => {
 
   } catch (error) {
     console.error('Error generating timetable:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate timetable',
-      details: error.message 
+      details: error.message
     });
   }
+});
+
+app.post('/api/generate-ceo-timetable', async (req, res) => {
+    try {
+      const { randomPlan, userPreferences } = req.body;
+
+      if (!randomPlan) {
+        return res.status(400).json({ error: 'No plan provided' });
+      }
+
+      const prompt = createCEOPrompt(randomPlan, userPreferences);
+
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      const timetable = parseTimetableResponse(text);
+
+      res.json({
+        success: true,
+        timetable,
+      });
+
+    } catch (error) {
+      console.error('Error generating CEO timetable:', error);
+      res.status(500).json({
+        error: 'Failed to generate CEO timetable',
+        details: error.message
+      });
+    }
 });
 
 // Save timetable
@@ -140,7 +171,7 @@ app.get('/api/timetables', async (req, res) => {
     // Check if MongoDB is connected
     if (mongoose.connection.readyState !== 1) {
       console.error('MongoDB not connected. ReadyState:', mongoose.connection.readyState);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Database connection error. Please check MongoDB configuration.',
         details: 'MongoDB is not connected'
       });
@@ -150,20 +181,20 @@ app.get('/api/timetables', async (req, res) => {
     res.json({ success: true, timetables });
   } catch (error) {
     console.error('Error fetching timetables:', error);
-    
+
     // Provide more specific error messages
     if (error.name === 'MongoNetworkError') {
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Database connection failed',
         details: 'Unable to connect to MongoDB'
       });
     } else if (error.name === 'ValidationError') {
-      res.status(400).json({ 
+      res.status(400).json({
         error: 'Invalid request data',
         details: error.message
       });
     } else {
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Failed to fetch timetables',
         details: error.message
       });
@@ -192,7 +223,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/analytics', async (req, res) => {
   try {
     const { userId, date, timetableId, technique, energyLevel, goal, totalTasks, totalWorkTime, totalBreakTime, taskCompletions } = req.body;
-    
+
     if (!userId || !date) {
       return res.status(400).json({ error: 'userId and date are required' });
     }
@@ -233,25 +264,25 @@ app.post('/api/analytics', async (req, res) => {
 app.get('/api/analytics', async (req, res) => {
   try {
     const { userId, startDate, endDate } = req.query;
-    
+
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
     let query = { userId };
-    
+
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
     }
 
     const analytics = await Analytics.find(query).sort({ date: -1 });
-    
+
     // Calculate aggregated metrics
     const totalDays = analytics.length;
     const totalTasksCompleted = analytics.reduce((sum, a) => sum + a.completedTasks, 0);
     const totalWorkTime = analytics.reduce((sum, a) => sum + a.totalWorkTime, 0);
     const averageProductivityScore = totalDays > 0 ? Math.round(analytics.reduce((sum, a) => sum + a.productivityScore, 0) / totalDays) : 0;
-    
+
     // Find most used technique
     const techniqueCounts = {};
     analytics.forEach(a => {
@@ -259,7 +290,7 @@ app.get('/api/analytics', async (req, res) => {
         techniqueCounts[a.technique] = (techniqueCounts[a.technique] || 0) + 1;
       }
     });
-    const mostUsedTechnique = Object.keys(techniqueCounts).length > 0 
+    const mostUsedTechnique = Object.keys(techniqueCounts).length > 0
       ? Object.keys(techniqueCounts).reduce((a, b) => techniqueCounts[a] > techniqueCounts[b] ? a : b)
       : 'None';
 
@@ -273,10 +304,10 @@ app.get('/api/analytics', async (req, res) => {
       averageWorkTimePerDay: totalDays > 0 ? Math.round(totalWorkTime / totalDays) : 0
     };
 
-    res.json({ 
-      success: true, 
-      analytics, 
-      metrics 
+    res.json({
+      success: true,
+      analytics,
+      metrics
     });
   } catch (error) {
     console.error('Error fetching analytics:', error);
@@ -287,20 +318,20 @@ app.get('/api/analytics', async (req, res) => {
 app.put('/api/analytics/task', async (req, res) => {
   try {
     const { userId, date, taskId, completed } = req.body;
-    
+
     if (!userId || !date || taskId === undefined) {
       return res.status(400).json({ error: 'userId, date, and taskId are required' });
     }
 
     const analytics = await Analytics.findOne({ userId, date });
-    
+
     if (!analytics) {
       return res.status(404).json({ error: 'Analytics not found for this date' });
     }
 
     // Update task completion
     const taskIndex = analytics.taskCompletions.findIndex(t => t.taskId === taskId);
-    
+
     if (taskIndex !== -1) {
       analytics.taskCompletions[taskIndex].completed = completed;
       analytics.taskCompletions[taskIndex].completedAt = completed ? new Date() : null;
@@ -311,7 +342,7 @@ app.put('/api/analytics/task', async (req, res) => {
     analytics.productivityScore = analytics.totalTasks > 0 ? Math.round((analytics.completedTasks / analytics.totalTasks) * 100) : 0;
 
     await analytics.save();
-    
+
     res.json({ success: true, analytics });
   } catch (error) {
     console.error('Error updating task completion:', error);
@@ -322,16 +353,16 @@ app.put('/api/analytics/task', async (req, res) => {
 app.delete('/api/analytics', async (req, res) => {
   try {
     const { userId } = req.query;
-    
+
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
     // Delete all analytics for the user
     const result = await Analytics.deleteMany({ userId });
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: `Deleted ${result.deletedCount} analytics records`,
       deletedCount: result.deletedCount
     });
@@ -393,8 +424,51 @@ server.on('error', (error) => {
   }
 });
 
+function createCEOPrompt(randomPlan, userPreferences = {}) {
+    const { energyLevel, preferredWorkoutTime } = userPreferences;
+
+    return `You are an elite Executive Assistant, tasked with structuring the day for a high-performing CEO. Your goal is to transform a raw, unstructured brain-dump of tasks and feelings into a strategic, optimized, and actionable daily plan.
+
+  **CEO's Brain-Dump:**
+  "${randomPlan}"
+
+  **CEO's State:**
+  - Energy Level: ${energyLevel || 'not specified'}
+  - Preferred Workout Time: ${preferredWorkoutTime || 'not specified'}
+
+  **Your Task:**
+  Analyze the brain-dump and create a structured, CEO-level daily schedule. Follow these principles:
+
+  1.  **Prioritize ruthlessly:** Identify the "one big thing" for the day and allocate prime, focused time for it.
+  2.  **Block time strategically:** Don't just list tasks. Create blocks of time for focused work, meetings, creative thinking, and personal tasks. Use time blocking.
+  3.  **Manage energy, not just time:** Schedule high-focus, creative tasks when energy is likely to be highest (e.g., morning). Schedule administrative or less demanding tasks for lower energy periods (e.g., after lunch).
+  4.  **Incorporate breaks and recovery:** A CEO's schedule is a marathon, not a sprint. Include strategic breaks for lunch, exercise, and short pauses to recharge.
+  5.  **Be proactive:** If the CEO mentions a vague task like "prepare for presentation," break it down into actionable steps (e.g., "Review presentation draft," "Practice delivery," "Finalize slides").
+  6.  **Add buffer time:** Do not schedule back-to-back meetings or tasks. Add 15-30 minute buffers to allow for travel, overruns, and context switching.
+  7.  **Provide a "Daily Briefing":** At the top of the schedule, provide a 2-3 sentence summary of the day's primary goal and focus.
+
+  **Output Format:**
+  Return the response as a JSON object with the following structure:
+
+  {
+    "dailyBriefing": "A short summary of the day's main objective.",
+    "dailySchedule": [
+      {
+        "time": "09:00 - 11:00",
+        "activity": "Deep Work: Finalize Presentation",
+        "type": "work",
+        "description": "Two hours of uninterrupted focus to complete the presentation. All notifications off."
+      }
+    ],
+    "recommendations": [
+      "A list of strategic recommendations for the day."
+    ]
+  }
+  `;
+}
+
 function createTimetablePrompt(tasks, technique, sessionConfig, userPreferences = {}) {
-  const taskList = tasks.map(task => 
+  const taskList = tasks.map(task =>
     `- ${task.title} (${task.estimatedDuration} min, ${task.priority} priority, ${task.category})`
   ).join('\n');
 
@@ -504,7 +578,7 @@ function parseTimetableResponse(response) {
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
-    
+
     // If no JSON found, create a basic structure
     return {
       dailySchedule: [],
@@ -525,4 +599,4 @@ function parseTimetableResponse(response) {
       rawResponse: response
     };
   }
-} 
+}

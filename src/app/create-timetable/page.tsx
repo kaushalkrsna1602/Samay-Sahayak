@@ -19,6 +19,9 @@ export default function CreateTimetablePage() {
   const { techniques, selectedTechnique, sessionConfig } = useAppSelector(state => state.technique);
   const { tasks, categories } = useAppSelector(state => state.tasks);
 
+  const [mode, setMode] = useState('structured'); // 'structured' or 'ceo'
+  const [randomPlan, setRandomPlan] = useState('');
+
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -28,7 +31,7 @@ export default function CreateTimetablePage() {
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   // Enhanced form state
   const [timetableDate, setTimetableDate] = useState(new Date().toISOString().split('T')[0]);
   const [dailyGoal, setDailyGoal] = useState('');
@@ -70,7 +73,7 @@ export default function CreateTimetablePage() {
 
     try {
       const selectedTechniqueData = techniques.find(t => t.id === selectedTechnique);
-      
+
       const requestData = {
         tasks,
         technique: selectedTechniqueData,
@@ -87,18 +90,18 @@ export default function CreateTimetablePage() {
       };
 
       console.log('Generating timetable with enhanced data:', requestData);
-      
+
       // Generate enhanced timetable data
       const enhancedTimetable: TimetableData = generateEnhancedTimetable(
-        tasks, 
-        selectedTechniqueData!, 
+        tasks,
+        selectedTechniqueData!,
         sessionConfig,
         requestData.userPreferences
       );
-      
+
       // Store the timetable in Redux
       dispatch(setTimetable(enhancedTimetable));
-      
+
       // Save timetable to backend
       try {
         await ApiService.saveTimetable({
@@ -110,7 +113,7 @@ export default function CreateTimetablePage() {
         console.error('Failed to save timetable:', error);
         // Continue to results page even if save fails
       }
-      
+
       // Navigate to results page
       router.push('/timetable-results');
     } catch (error) {
@@ -123,9 +126,43 @@ export default function CreateTimetablePage() {
     }
   };
 
+  const handleGenerateCEOSchedule = async () => {
+    if (!randomPlan.trim() || !user) {
+        return;
+    }
+
+    setIsGenerating(true);
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+
+    try {
+        // NOTE: You will need to create a new method in your ApiService
+        // for 'generateCEOTimetable'. For now, we'll placeholder it.
+        const response = await ApiService.generateTimetable({
+            tasks: [{ title: randomPlan, description: '', priority: 'medium', estimatedDuration: 480, category: 'General' }],
+            technique: techniques[0],
+            sessionConfig: { techniqueId: 'pomodoro', sessionLength: 25, breakLength: 5, workDays: [], startTime: '09:00', endTime: '17:00' },
+        });
+
+        if (response.success) {
+            dispatch(setTimetable(response.timetable));
+            router.push('/timetable-results');
+        } else {
+            throw new Error('Failed to generate CEO timetable');
+        }
+    } catch (error) {
+        console.error('Error generating CEO timetable:', error);
+        dispatch(setError('Failed to generate CEO timetable. Please try again.'));
+        alert('Failed to generate CEO timetable. Please try again.');
+    } finally {
+        setIsGenerating(false);
+        dispatch(setLoading(false));
+    }
+};
+
   const generateEnhancedTimetable = (
-    tasks: Task[], 
-    technique: any, 
+    tasks: Task[],
+    technique: any,
     sessionConfig: any,
     preferences: any
   ): TimetableData => {
@@ -152,12 +189,12 @@ export default function CreateTimetablePage() {
         priority: task.priority,
         category: task.category
       });
-      
+
       totalWorkTime += Math.min(task.estimatedDuration, sessionConfig.sessionLength);
-      
+
       // Move time forward
       currentTime.setMinutes(currentTime.getMinutes() + Math.min(task.estimatedDuration, sessionConfig.sessionLength));
-      
+
       // Add break if not the last task and breaks are enabled
       if (index < sortedTasks.length - 1 && preferences.includeBreaks) {
         schedule.push({
@@ -167,7 +204,7 @@ export default function CreateTimetablePage() {
           type: 'break' as const,
           description: 'Take a short break to refresh'
         });
-        
+
         totalBreakTime += sessionConfig.breakLength;
         currentTime.setMinutes(currentTime.getMinutes() + sessionConfig.breakLength);
       }
@@ -226,417 +263,436 @@ export default function CreateTimetablePage() {
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Left Column - Goals & Preferences */}
-            <div className="space-y-6">
-              {/* Date Selection */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Timetable Date
-                </h2>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Which day is this timetable for?
-                  </label>
-                  <input
-                    type="date"
-                    value={timetableDate}
-                    onChange={(e) => setTimetableDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-              </div>
+          <div className="flex justify-center mb-4">
+            <button onClick={() => setMode('structured')} className={`px-4 py-2 rounded-l-md ${mode === 'structured' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}>Structured Planning</button>
+            <button onClick={() => setMode('ceo')} className={`px-4 py-2 rounded-r-md ${mode === 'ceo' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}>CEO Mode</button>
+          </div>
 
-              {/* Daily Goal */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Target className="h-5 w-5 mr-2" />
-                  Your Daily Goal
-                </h2>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    What do you want to achieve today?
-                  </label>
-                  <textarea
-                    value={dailyGoal}
-                    onChange={(e) => setDailyGoal(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    rows={3}
-                    placeholder="e.g., Complete the project proposal, exercise for 30 minutes, read 20 pages..."
-                  />
-                </div>
-              </div>
-
-              {/* Energy & Preferences */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Zap className="h-5 w-5 mr-2" />
-                  Energy & Preferences
-                </h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      How's your energy level today?
-                    </label>
-                    <select
-                      value={energyLevel}
-                      onChange={(e) => setEnergyLevel(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    >
-                      <option value="low">Low - Need gentle tasks</option>
-                      <option value="medium">Medium - Balanced approach</option>
-                      <option value="high">High - Ready for challenges</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Preferred workout time
-                      </label>
-                      <select
-                        value={preferredWorkoutTime}
-                        onChange={(e) => setPreferredWorkoutTime(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      >
-                        <option value="morning">Morning</option>
-                        <option value="afternoon">Afternoon</option>
-                        <option value="evening">Evening</option>
-                        <option value="none">No workout today</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Preferred learning time
-                      </label>
-                      <select
-                        value={preferredLearningTime}
-                        onChange={(e) => setPreferredLearningTime(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      >
-                        <option value="morning">Morning</option>
-                        <option value="afternoon">Afternoon</option>
-                        <option value="evening">Evening</option>
-                        <option value="none">No learning today</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={includeBreaks}
-                        onChange={(e) => setIncludeBreaks(e.target.checked)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Include regular breaks</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={includeMeals}
-                        onChange={(e) => setIncludeMeals(e.target.checked)}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Include meal breaks</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tasks Section */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Plus className="h-5 w-5 mr-2" />
-                  Add Tasks
-                </h2>
-                
-                {/* Add Task Form */}
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Task Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={newTask.title}
-                      onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="Enter task title"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      value={newTask.description}
-                      onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      rows={2}
-                      placeholder="Optional description"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Priority
-                      </label>
-                      <select
-                        value={newTask.priority}
-                        onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Duration (min)
-                      </label>
-                      <input
-                        type="number"
-                        value={newTask.estimatedDuration}
-                        onChange={(e) => setNewTask({ ...newTask, estimatedDuration: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        min="5"
-                        step="5"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Category
-                    </label>
-                    <select
-                      value={newTask.category}
-                      onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    >
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    onClick={handleAddTask}
-                    disabled={!newTask.title.trim()}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Add Task
-                  </button>
-                </div>
-
-                {/* Task List */}
-                <div className="space-y-3">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Your Tasks ({tasks.length})
-                  </h3>
-                  {tasks.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">
-                      No tasks added yet. Add your first task above.
-                    </p>
-                  ) : (
-                    tasks.map((task) => (
-                      <div key={task.id} className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium text-gray-900">{task.title}</h4>
-                          <button
-                            onClick={() => dispatch(removeTask(task.id))}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                        {task.description && (
-                          <p className="text-sm text-gray-600 mb-2">{task.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                            {task.priority}
-                          </span>
-                          <span className="text-gray-500 flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {task.estimatedDuration} min
-                          </span>
-                          <span className="text-gray-500">{task.category}</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column - Technique & Config */}
-            <div className="space-y-6">
-              {/* Technique Selection */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Settings className="h-5 w-5 mr-2" />
-                  Choose Technique
-                </h2>
-                
-                <div className="space-y-3">
-                  {techniques.map((technique) => (
-                    <div
-                      key={technique.id}
-                      onClick={() => handleTechniqueSelect(technique.id)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedTechnique === technique.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium text-gray-900">{technique.name}</h3>
-                        <div 
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: technique.color }}
-                        ></div>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{technique.description}</p>
-                      <div className="text-xs text-gray-500">
-                        Default: {technique.defaultSessionLength}min work, {technique.defaultBreakLength}min break
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Session Configuration */}
-              {selectedTechnique && sessionConfig && (
+          {mode === 'structured' ? (
+            <div className="grid lg:grid-cols-2 gap-8">
+              {/* Left Column - Goals & Preferences */}
+              <div className="space-y-6">
+                {/* Date Selection */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                    <Clock className="h-5 w-5 mr-2" />
-                    Session Configuration
+                    <Calendar className="h-5 w-5 mr-2" />
+                    Timetable Date
                   </h2>
-                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Which day is this timetable for?
+                    </label>
+                    <input
+                      type="date"
+                      value={timetableDate}
+                      onChange={(e) => setTimetableDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                </div>
+
+                {/* Daily Goal */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <Target className="h-5 w-5 mr-2" />
+                    Your Daily Goal
+                  </h2>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      What do you want to achieve today?
+                    </label>
+                    <textarea
+                      value={dailyGoal}
+                      onChange={(e) => setDailyGoal(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      rows={3}
+                      placeholder="e.g., Complete the project proposal, exercise for 30 minutes, read 20 pages..."
+                    />
+                  </div>
+                </div>
+
+                {/* Energy & Preferences */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <Zap className="h-5 w-5 mr-2" />
+                    Energy & Preferences
+                  </h2>
+
                   <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        How's your energy level today?
+                      </label>
+                      <select
+                        value={energyLevel}
+                        onChange={(e) => setEnergyLevel(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      >
+                        <option value="low">Low - Need gentle tasks</option>
+                        <option value="medium">Medium - Balanced approach</option>
+                        <option value="high">High - Ready for challenges</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Preferred workout time
+                        </label>
+                        <select
+                          value={preferredWorkoutTime}
+                          onChange={(e) => setPreferredWorkoutTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        >
+                          <option value="morning">Morning</option>
+                          <option value="afternoon">Afternoon</option>
+                          <option value="evening">Evening</option>
+                          <option value="none">No workout today</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Preferred learning time
+                        </label>
+                        <select
+                          value={preferredLearningTime}
+                          onChange={(e) => setPreferredLearningTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        >
+                          <option value="morning">Morning</option>
+                          <option value="afternoon">Afternoon</option>
+                          <option value="evening">Evening</option>
+                          <option value="none">No learning today</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={includeBreaks}
+                          onChange={(e) => setIncludeBreaks(e.target.checked)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Include regular breaks</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={includeMeals}
+                          onChange={(e) => setIncludeMeals(e.target.checked)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Include meal breaks</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tasks Section */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <Plus className="h-5 w-5 mr-2" />
+                    Add Tasks
+                  </h2>
+
+                  {/* Add Task Form */}
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Task Title *
+                      </label>
+                      <input
+                        type="text"
+                        value={newTask.title}
+                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        placeholder="Enter task title"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={newTask.description}
+                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        rows={2}
+                        placeholder="Optional description"
+                      />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Session Length (min)
+                          Priority
+                        </label>
+                        <select
+                          value={newTask.priority}
+                          onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Duration (min)
                         </label>
                         <input
                           type="number"
-                          value={sessionConfig.sessionLength}
-                          onChange={(e) => handleSessionConfigUpdate({ sessionLength: parseInt(e.target.value) || 0 })}
+                          value={newTask.estimatedDuration}
+                          onChange={(e) => setNewTask({ ...newTask, estimatedDuration: parseInt(e.target.value) || 0 })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                           min="5"
                           step="5"
                         />
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Break Length (min)
-                        </label>
-                        <input
-                          type="number"
-                          value={sessionConfig.breakLength}
-                          onChange={(e) => handleSessionConfigUpdate({ breakLength: parseInt(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Start Time
-                        </label>
-                        <input
-                          type="time"
-                          value={sessionConfig.startTime}
-                          onChange={(e) => handleSessionConfigUpdate({ startTime: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          End Time
-                        </label>
-                        <input
-                          type="time"
-                          value={sessionConfig.endTime}
-                          onChange={(e) => handleSessionConfigUpdate({ endTime: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        />
-                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Work Days
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Category
                       </label>
-                      <div className="grid grid-cols-7 gap-2">
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                          <label key={day} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={sessionConfig.workDays.includes(day === 'Mon' ? 'Monday' : day === 'Tue' ? 'Tuesday' : day === 'Wed' ? 'Wednesday' : day === 'Thu' ? 'Thursday' : day === 'Fri' ? 'Friday' : day === 'Sat' ? 'Saturday' : 'Sunday')}
-                              onChange={(e) => {
-                                const dayName = day === 'Mon' ? 'Monday' : day === 'Tue' ? 'Tuesday' : day === 'Wed' ? 'Wednesday' : day === 'Thu' ? 'Thursday' : day === 'Fri' ? 'Friday' : day === 'Sat' ? 'Saturday' : 'Sunday';
-                                const newWorkDays = e.target.checked
-                                  ? [...sessionConfig.workDays, dayName]
-                                  : sessionConfig.workDays.filter(d => d !== dayName);
-                                handleSessionConfigUpdate({ workDays: newWorkDays });
-                              }}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-900">{day}</span>
-                          </label>
+                      <select
+                        value={newTask.category}
+                        onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      >
+                        {categories.map(category => (
+                          <option key={category} value={category}>{category}</option>
                         ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={handleAddTask}
+                      disabled={!newTask.title.trim()}
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Add Task
+                    </button>
+                  </div>
+
+                  {/* Task List */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Your Tasks ({tasks.length})
+                    </h3>
+                    {tasks.length === 0 ? (
+                      <p className="text-gray-500 text-center py-8">
+                        No tasks added yet. Add your first task above.
+                      </p>
+                    ) : (
+                      tasks.map((task) => (
+                        <div key={task.id} className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-medium text-gray-900">{task.title}</h4>
+                            <button
+                              onClick={() => dispatch(removeTask(task.id))}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {task.description && (
+                            <p className="text-sm text-gray-600 mb-2">{task.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                              {task.priority}
+                            </span>
+                            <span className="text-gray-500 flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {task.estimatedDuration} min
+                            </span>
+                            <span className="text-gray-500">{task.category}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Technique & Config */}
+              <div className="space-y-6">
+                {/* Technique Selection */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <Settings className="h-5 w-5 mr-2" />
+                    Choose Technique
+                  </h2>
+
+                  <div className="space-y-3">
+                    {techniques.map((technique) => (
+                      <div
+                        key={technique.id}
+                        onClick={() => handleTechniqueSelect(technique.id)}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedTechnique === technique.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-medium text-gray-900">{technique.name}</h3>
+                          <div
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: technique.color }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{technique.description}</p>
+                        <div className="text-xs text-gray-500">
+                          Default: {technique.defaultSessionLength}min work, {technique.defaultBreakLength}min break
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Session Configuration */}
+                {selectedTechnique && sessionConfig && (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                      <Clock className="h-5 w-5 mr-2" />
+                      Session Configuration
+                    </h2>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Session Length (min)
+                          </label>
+                          <input
+                            type="number"
+                            value={sessionConfig.sessionLength}
+                            onChange={(e) => handleSessionConfigUpdate({ sessionLength: parseInt(e.target.value) || 0 })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                            min="5"
+                            step="5"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Break Length (min)
+                          </label>
+                          <input
+                            type="number"
+                            value={sessionConfig.breakLength}
+                            onChange={(e) => handleSessionConfigUpdate({ breakLength: parseInt(e.target.value) || 0 })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                            min="1"
+                            step="1"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={sessionConfig.startTime}
+                            onChange={(e) => handleSessionConfigUpdate({ startTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={sessionConfig.endTime}
+                            onChange={(e) => handleSessionConfigUpdate({ endTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Work Days
+                        </label>
+                        <div className="grid grid-cols-7 gap-2">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                            <label key={day} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={sessionConfig.workDays.includes(day === 'Mon' ? 'Monday' : day === 'Tue' ? 'Tuesday' : day === 'Wed' ? 'Wednesday' : day === 'Thu' ? 'Thursday' : day === 'Fri' ? 'Friday' : day === 'Sat' ? 'Saturday' : 'Sunday')}
+                                onChange={(e) => {
+                                  const dayName = day === 'Mon' ? 'Monday' : day === 'Tue' ? 'Tuesday' : day === 'Wed' ? 'Wednesday' : day === 'Thu' ? 'Thursday' : day === 'Fri' ? 'Friday' : day === 'Sat' ? 'Saturday' : 'Sunday';
+                                  const newWorkDays = e.target.checked
+                                    ? [...sessionConfig.workDays, dayName]
+                                    : sessionConfig.workDays.filter(d => d !== dayName);
+                                  handleSessionConfigUpdate({ workDays: newWorkDays });
+                                }}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-900">{day}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Generate Button */}
-              {tasks.length > 0 && selectedTechnique && (
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <button
-                    onClick={handleGenerateTimetable}
-                    disabled={isGenerating}
-                    className={`w-full py-3 px-4 rounded-md font-semibold text-lg transition-colors ${
-                      isGenerating 
-                        ? 'bg-gray-400 text-gray-800 cursor-not-allowed' 
+                {/* Generate Button */}
+                {tasks.length > 0 && selectedTechnique && (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <button
+                      onClick={handleGenerateTimetable}
+                      disabled={isGenerating}
+                      className={`w-full py-3 px-4 rounded-md font-semibold text-lg transition-colors ${isGenerating
+                        ? 'bg-gray-400 text-gray-800 cursor-not-allowed'
                         : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    {isGenerating ? (
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-800 mr-2"></div>
-                        Generating...
-                      </div>
-                    ) : (
-                      'Generate Timetable with AI'
-                    )}
-                  </button>
-                  <p className="text-sm text-gray-500 text-center mt-2">
-                    AI will analyze your goals, preferences, and tasks to create an optimal schedule
-                  </p>
-                </div>
-              )}
+                        }`}
+                    >
+                      {isGenerating ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-800 mr-2"></div>
+                          Generating...
+                        </div>
+                      ) : (
+                        'Generate Timetable with AI'
+                      )}
+                    </button>
+                    <p className="text-sm text-gray-500 text-center mt-2">
+                      AI will analyze your goals, preferences, and tasks to create an optimal schedule
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Describe Your Day</h2>
+              <textarea
+                value={randomPlan}
+                onChange={(e) => setRandomPlan(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                rows={10}
+                placeholder="e.g., 'I have a big presentation tomorrow that I need to finish. I also need to call my mom, go to the gym, and pick up groceries. I feel a bit tired today.'"
+              />
+              <button onClick={handleGenerateCEOSchedule} className="w-full bg-blue-600 text-white py-2 px-4 rounded-md mt-4">
+                Generate CEO Plan
+              </button>
+            </div>
+          )}
         </div>
       </SignedIn>
       <SignedOut>
@@ -651,4 +707,4 @@ export default function CreateTimetablePage() {
       </SignedOut>
     </div>
   );
-} 
+}
