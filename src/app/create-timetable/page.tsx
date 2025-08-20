@@ -684,7 +684,7 @@ export default function CreateTimetablePage() {
               <textarea
                 value={randomPlan}
                 onChange={(e) => setRandomPlan(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
                 rows={10}
                 placeholder="e.g., 'I have a big presentation tomorrow that I need to finish. I also need to call my mom, go to the gym, and pick up groceries. I feel a bit tired today.'"
               />
